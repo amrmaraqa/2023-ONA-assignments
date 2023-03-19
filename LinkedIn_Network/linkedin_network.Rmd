@@ -1,0 +1,156 @@
+---
+title: "Linkedin_Network"
+author: "Amr_Maraqa"
+date: "2023-03-15"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Network Analysis on Linkedin
+
+LinkedIn is a powerful tool for professional networking, allowing individuals to connect with others in their industry, showcase their skills and experience, and seek out new job opportunities.
+
+In this analysis, we will be taking a closer look at my personal network on LinkedIn. By examining the connections I have made, we will gain insights into the companies I've made the most connections, and the potential opportunities that may be available in the future.
+
+### Top 15 Companies in a table
+```{r top table}
+# Import CSV
+cnxn <- read.csv("C:\\Users\\m.maraqa\\Desktop\\MMA courses\\Winter 2023\\Organizational Network Analysis\\Exercise 1\\Connections.csv")
+attach(cnxn)
+
+
+# Create a table with 
+cnxn$name <-  paste(cnxn$First.Name, substr(cnxn$Last.Name, start = 1, stop = 1), sep = " ")
+
+cnxn <- cnxn[, c("name", "Company","Position", "Connected.On")]
+
+# Lower case company name
+library(dplyr)
+cnxn <- cnxn %>% mutate(Company = tolower(Company))
+
+# If no company, write "unknown"
+cnxn <- cnxn %>% 
+  mutate(Company = replace(Company, Company=="","unknown"))
+
+# Remove accents in the column
+library(stringi)
+cnxn$Company <- stri_trans_general(str=cnxn$Company, id="Latin-ASCII")
+
+# Replace everything starting with McGill by just McGill
+library(stringr)
+cnxn <- cnxn %>% 
+  mutate(company = replace(Company, str_detect(Company,"mcgill"),"mcgill"))
+
+# Remove "-" and replace with space
+cnxn <- cnxn %>% mutate(Company = str_replace(Company,"-"," "))
+
+# create a frequency table
+freq_table = table(cnxn$Company)
+freq_table = sort(freq_table, decreasing = TRUE)
+top15= head(freq_table, n = 15)
+
+
+# Display the list as a table
+knitr::kable(top15, col.names = c("Company", "Connections"))
+
+```
+
+### Top 15 Companies in a graph
+```{r top 15 graph}
+# create a bar chart of the frequency table
+barplot(top15, main = "Top 15 Connections on Linkedin", 
+         ylab = "Number of Connections",
+        col = "steelblue", las = 2, cex.names = 0.8)
+
+```
+
+### Creating nodes
+The nodes are represented by my contacts, and I am also including the companies they worked for.
+```{r nodes}
+######### Creating nodes
+
+library(tidyverse)
+
+people <- cnxn %>%
+  distinct(name) %>%
+  rename(label = name)
+
+companies <- cnxn %>%
+  distinct(Company) %>%
+  rename(label = Company)
+
+nodes <- full_join(people, companies, by = "label")
+nodes <- rowid_to_column(nodes, "id")
+head(nodes)
+```
+
+
+### Creating edges
+The edges represent the relationship between the people and the companies.
+```{r edges}
+#### Creating edges
+
+edges <- cnxn[, c("name", "Company")]
+
+edges <- edges %>% 
+  left_join(nodes, by = c("name" = "label")) %>% 
+  rename(from = id)
+
+edges <- edges %>% 
+  left_join(nodes, by = c("Company" = "label")) %>% 
+  rename(to = id)
+
+edges <- unique(select(edges, from, to))
+head(edges)
+```
+
+
+### Graph with network library
+One can see that there are around 4 companies with the most connections. However one cannot really see the details of each.
+
+```{r network}
+## Building network
+library(network)
+
+routes_network <- network(edges,
+                          vertex.attr = nodes,
+                          matrix.type = "edgelist",
+                          ignore.eval = FALSE)
+plot(routes_network, vertex.cex = 1)
+```
+
+
+### Graph with igraph
+Using igraph I added the names of companies and people, however, it is still difficult to see due to the high number of connections.
+
+```{r igrpah}
+## igraph
+
+library(igraph)
+routes_igraph <- graph_from_data_frame(d = edges,
+                                       vertices = nodes,
+                                       directed = TRUE)
+
+plot(routes_igraph,
+     vertex.size = 3,
+     vertex.label.cex = 0.2,
+     edge.arrow.size = 0.01)
+```
+
+### Graph with visnetwork library
+visnetwork library offers an interactive network graph which enhances the visibility of company and employee names.
+
+```{r visnetwork}
+## visNetwork
+
+library(visNetwork)
+library(networkD3)
+visNetwork(nodes, edges)
+```
+
+
