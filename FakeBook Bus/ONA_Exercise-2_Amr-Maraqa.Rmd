@@ -1,0 +1,75 @@
+---
+title: "ONA_Exercise 2_Amr Maraqa"
+output: html_document
+date: "2023-03-21"
+---
+```{r libraries}
+library(dplyr)
+library(tidyr)
+library(tidyverse)
+library(igraph)
+library(tidygraph)
+library(ggraph)
+```
+
+```{r dataset}
+# Create Data
+nodes <- c('A', 'B', 'C', 'D', '1', '2', '3', '4', '5', '6')
+front <- c('2', 'A', NA, 'B',NA, '1', 'C', NA, 'D', NA)
+back <- c('B', 'D', '3', '5', '2', 'A', NA, NA, NA, NA)
+right <- c(NA, 'C', NA, '3', NA, NA, '4', NA, NA, 'D')
+left <- c(NA, NA, 'B', '6', NA, NA, 'D', '3', NA, NA)
+NE <- c('C', '3', '4', NA, NA, NA, NA, NA, NA, '5')
+SE <- c(NA, NA, NA, 'C', NA, NA, NA, NA, '3', 'B')
+NW <- c(NA, '6', 'D', NA, NA, NA, '5', NA, NA, NA)
+SW <- c(NA, NA, 'A', NA, NA, NA, 'B', 'C', '6', NA)
+seats_df <- cbind(nodes, front, back, right, left,NE,SE,NW,SW)
+
+# Define nodes and edges
+edges <- rbind(as.data.frame(cbind(nodes, front)) %>% rename(c('to' = front, 'from' = nodes)),
+               as.data.frame(cbind(nodes, back)) %>% rename(c('to' = back, 'from' = nodes)),
+               as.data.frame(cbind(nodes, right)) %>% rename(c('to' = right, 'from' = nodes)),
+               as.data.frame(cbind(nodes, left)) %>% rename(c('to' = left, 'from' = nodes)),
+               as.data.frame(cbind(nodes, NE)) %>% rename(c('to' = NE, 'from' = nodes)),
+               as.data.frame(cbind(nodes, SE)) %>% rename(c('to' = SE, 'from' = nodes)),
+               as.data.frame(cbind(nodes, NW)) %>% rename(c('to' = NW, 'from' = nodes)),
+               as.data.frame(cbind(nodes, SW)) %>% rename(c('to' = SW, 'from' = nodes)))
+
+edges <- edges %>% drop_na()
+nodes <- as.data.frame(nodes)
+colnames(nodes) <- c('node')
+```
+
+```{r network}
+# Create Network
+network <- tbl_graph(nodes = nodes, edges = edges, directed=FALSE)
+```
+
+```{r node network}
+# Calculating node metrics
+network <- network %>% 
+  mutate(degree = centrality_degree()/2,
+         closeness = centrality_closeness_harmonic(),
+         betweenness = centrality_betweenness()) %>%
+  mutate(avg = (degree + closeness + betweenness)/3) %>%
+  mutate(label = paste0(node, '\n',
+                        'Degree: ',round(degree,2), '\n',
+                        'Closeness: ',round(closeness,2), '\n',
+                        'Betweenness: ',round(betweenness,2), '\n',
+                        'Avg: ',round(avg,2)))
+net_data <- network %>% data.frame() %>% tibble()
+```
+
+```{r plot}
+# Plot Network
+network %>%
+  ggraph(layout="graphopt") +
+  geom_edge_link(edge_colour = "grey", alpha=0.5) +
+  geom_node_point(aes(size=avg)) +
+  geom_node_text(aes(label = label), repel=TRUE) +
+  theme_graph(foreground=NA)
+```
+
+Seat Choice and Explanation
+
+I would choose to sit in  seat B on the fakebook bus. Even though my average score on that seat wouldn't be the highest (seat A avg = 7.61), I would have the highest degree and measure of closeness in the network.This means that seat B would allow me to be the most popular among the Fakebook interns and to form strong relationships with them as well. Although the person sitting in seat A would have a higher measure of betweenness than I would, seat B would still give me access to many friend circles on the bus. One of the drawbacks of my choice is it reliance on the person in seat A for conncection with those in seats 1 and 2, as he/she would be the only link between me and them. If those sitting in seats 1 and 2 happen to be crucial to my role or future in a way (group leader, well-connected), I would be greatly disadvantaged to be in seat B, because my access to the people in seat 1 and 2 would be subject to the unpredicatability of the behavior of the person in seat A. 
